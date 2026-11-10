@@ -32,10 +32,17 @@ for label, query in SEARCHES:
     except Exception as exc: print(label,'FAILED',str(exc))
 unique={x['id']:x for x in items}
 path=Path(__file__).with_name('news.json')
-# Preserve previous successful data if all sources are temporarily unavailable.
+try:
+    old=json.loads(path.read_text(encoding='utf-8'))
+except (FileNotFoundError, json.JSONDecodeError):
+    old={'items': []}
+# Keep all previously collected articles; refresh metadata for repeat items.
+archive={x['id']:x for x in old.get('items',[]) if x.get('id')}
+archive.update(unique)
 if unique:
-    payload={'updated':dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).strftime('%Y-%m-%d %H:%M JST'),'items':list(unique.values())}
+    payload={'updated':dt.datetime.now(dt.timezone(dt.timedelta(hours=9))).strftime('%Y-%m-%d %H:%M JST'),
+             'items':sorted(archive.values(),key=lambda x:x.get('date') or '',reverse=True)}
     path.write_text(json.dumps(payload,ensure_ascii=False,indent=2),encoding='utf-8')
-    print('saved',len(unique),'articles')
+    print('saved',len(payload['items']),'total articles;',len(unique),'fetched')
 else:
     print('No new data; retaining previous news.json')
